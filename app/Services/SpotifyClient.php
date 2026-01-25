@@ -10,13 +10,19 @@ use Illuminate\Support\Facades\Http;
 class SpotifyClient
 {
     /**
+     * Search tracks by title and artist (strict search).
+     *
      * @return array<int, array<string, mixed>>
      */
     public function searchTracks(string $title, string $artist): array
     {
+        if (trim($title) === '' || trim($artist) === '') {
+            return [];
+        }
+
         $token = $this->getAccessToken();
 
-        if (!$token) {
+        if (! $token) {
             return [];
         }
 
@@ -30,7 +36,44 @@ class SpotifyClient
                 'q' => $query,
             ]);
 
-            if (!$response->successful()) {
+            if (! $response->successful()) {
+                return [];
+            }
+
+            $items = $response->json('tracks.items');
+
+            return is_array($items) ? $items : [];
+        });
+    }
+
+    /**
+     * Search tracks by title only (fallback for fuzzy artist matching).
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function searchTracksByTitle(string $title): array
+    {
+        if (trim($title) === '') {
+            return [];
+        }
+
+        $token = $this->getAccessToken();
+
+        if (! $token) {
+            return [];
+        }
+
+        $query = sprintf('track:"%s"', $title);
+        $cacheKey = 'spotify.search.title.'.sha1($query);
+
+        return Cache::remember($cacheKey, now()->addHours(6), function () use ($token, $query): array {
+            $response = Http::withToken($token)->get($this->apiBaseUrl().'/v1/search', [
+                'type' => 'track',
+                'limit' => 20,
+                'q' => $query,
+            ]);
+
+            if (! $response->successful()) {
                 return [];
             }
 
@@ -47,7 +90,7 @@ class SpotifyClient
     {
         $token = $this->getAccessToken();
 
-        if (!$token) {
+        if (! $token) {
             return [];
         }
 
@@ -60,7 +103,7 @@ class SpotifyClient
                 'q' => $albumName,
             ]);
 
-            if (!$response->successful()) {
+            if (! $response->successful()) {
                 return [];
             }
 
@@ -91,7 +134,7 @@ class SpotifyClient
                 str_contains($normalizedQuery, $normalizedSpotifyName)) {
                 $images = $album['images'] ?? [];
 
-                if (!empty($images)) {
+                if (! empty($images)) {
                     usort($images, fn ($a, $b) => ($b['height'] ?? 0) - ($a['height'] ?? 0));
 
                     return $images[0]['url'] ?? null;
@@ -132,13 +175,13 @@ class SpotifyClient
                 'grant_type' => 'client_credentials',
             ]);
 
-        if (!$response->successful()) {
+        if (! $response->successful()) {
             return null;
         }
 
         $token = $response->json('access_token');
 
-        if (!is_string($token) || $token === '') {
+        if (! is_string($token) || $token === '') {
             return null;
         }
 
