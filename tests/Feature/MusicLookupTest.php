@@ -7,6 +7,7 @@ use App\Services\MusicLookupService;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Http;
 use Livewire\Livewire;
+
 use function Pest\Laravel\get;
 
 beforeEach(function () {
@@ -36,16 +37,16 @@ test('homepage loads successfully', function () {
 });
 
 test('music lookup service finds albums for date', function () {
-    $service = new MusicLookupService();
+    $service = new MusicLookupService;
     $albums = $service->findAlbumsForDate(Carbon::parse('2001-12-01'));
-    
+
     expect($albums)->toHaveCount(1);
     expect($albums->first()->name)->toBe("NOW That's What I Call Music! 50");
 });
 
 test('music lookup service handles dates before first album', function () {
-    $service = new MusicLookupService();
-    
+    $service = new MusicLookupService;
+
     expect($service->isBeforeFirstAlbum(Carbon::parse('1980-01-01')))->toBeTrue();
     expect($service->isBeforeFirstAlbum(Carbon::parse('2002-01-01')))->toBeFalse();
 });
@@ -193,10 +194,10 @@ test('pickEra with Y2K clamps to maximum date when outside range', function () {
 test('isEraRelevant returns true for decade containing data', function () {
     // Album is from 2001, so 2000s decade should be relevant
     $component = Livewire::test('music-lookup');
-    
+
     // Access the component instance to call the method directly
     $instance = $component->instance();
-    
+
     // 2000s should be relevant (2001 is in the 2000s)
     expect($instance->isEraRelevant('2005'))->toBeTrue();
     expect($instance->isEraRelevant('2001'))->toBeTrue();
@@ -206,7 +207,7 @@ test('isEraRelevant returns false for decades without data', function () {
     // Album is from 2001, so 80s and 90s should not be relevant
     $component = Livewire::test('music-lookup');
     $instance = $component->instance();
-    
+
     expect($instance->isEraRelevant('1983'))->toBeFalse();
     expect($instance->isEraRelevant('1995'))->toBeFalse();
 });
@@ -215,7 +216,7 @@ test('isEraRelevant returns false for future decades without data', function () 
     // Album is from 2001, so 2010s should not be relevant
     $component = Livewire::test('music-lookup');
     $instance = $component->instance();
-    
+
     expect($instance->isEraRelevant('2015'))->toBeFalse();
 });
 
@@ -268,13 +269,35 @@ test('pickEra with date within range does not clamp', function () {
 test('surpriseMe picks a date within valid range', function () {
     $component = Livewire::test('music-lookup');
     $component->call('surpriseMe');
-    
+
     // After surpriseMe, the selectedDate should be within the valid range
     $selectedDate = $component->get('selectedDate');
     $minDate = $component->get('minAlbumReleaseDate');
     $maxDate = $component->get('maxAlbumReleaseDate');
-    
+
     expect($selectedDate)->not->toBeNull();
     expect(Carbon::parse($selectedDate)->gte(Carbon::parse($minDate)))->toBeTrue();
     expect(Carbon::parse($selectedDate)->lte(Carbon::parse($maxDate)))->toBeTrue();
+});
+
+test('clearing date after search resets search state', function () {
+    Livewire::test('music-lookup')
+        ->set('selectedDate', '2001-11-19')
+        ->call('search')
+        ->assertSet('searched', true)
+        ->assertSee("NOW That's What I Call Music! 50")
+        ->set('selectedDate', null)
+        ->assertSet('searched', false)
+        ->assertSet('errorMessage', '')
+        ->assertDontSee("NOW That's What I Call Music! 50");
+});
+
+test('clearing date with empty string after search resets search state', function () {
+    Livewire::test('music-lookup')
+        ->set('selectedDate', '2001-11-19')
+        ->call('search')
+        ->assertSet('searched', true)
+        ->set('selectedDate', '')
+        ->assertSet('searched', false)
+        ->assertSet('errorMessage', '');
 });
