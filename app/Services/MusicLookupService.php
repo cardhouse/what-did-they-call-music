@@ -7,13 +7,14 @@ namespace App\Services;
 use App\Models\Album;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Collection;
-use App\Services\SpotifyMatchService;
 
 class MusicLookupService
 {
     /**
      * Find the most recent NOW album(s) released as of the given date.
      * If both regular and special editions exist for the same date, return both.
+     *
+     * @return Collection<int, Album>
      */
     public function findAlbumsForDate(Carbon $date): Collection
     {
@@ -21,8 +22,8 @@ class MusicLookupService
         $mostRecentDate = Album::releasedByDate($date)
             ->max('release_date');
 
-        if (!$mostRecentDate) {
-            return new Collection();
+        if (! $mostRecentDate) {
+            return new Collection;
         }
 
         // Return all albums released on that most recent date
@@ -39,8 +40,8 @@ class MusicLookupService
     public function isBeforeFirstAlbum(Carbon $date): bool
     {
         $firstAlbumDate = Album::min('release_date');
-        
-        return !$firstAlbumDate || $date->lt(Carbon::parse($firstAlbumDate));
+
+        return ! $firstAlbumDate || $date->lt(Carbon::parse($firstAlbumDate));
     }
 
     /**
@@ -49,21 +50,30 @@ class MusicLookupService
     public function getFirstAlbumDate(): ?Carbon
     {
         $firstDate = Album::min('release_date');
-        
+
         return $firstDate ? Carbon::parse($firstDate) : null;
     }
 
     /**
      * Get statistics about the NOW album collection.
+     *
+     * @return array{total_albums: int, total_songs: int, date_range: array{first: ?Carbon, latest: ?Carbon}, album_types: array<string, int>}
      */
     public function getCollectionStats(): array
     {
+        // Single query for album aggregates instead of multiple queries
+        $albumStats = Album::selectRaw('
+            COUNT(*) as total,
+            MIN(release_date) as first_date,
+            MAX(release_date) as latest_date
+        ')->first();
+
         return [
-            'total_albums' => Album::count(),
+            'total_albums' => $albumStats->total ?? 0,
             'total_songs' => \App\Models\Song::count(),
             'date_range' => [
-                'first' => $this->getFirstAlbumDate(),
-                'latest' => Album::max('release_date') ? Carbon::parse(Album::max('release_date')) : null,
+                'first' => $albumStats->first_date ? Carbon::parse($albumStats->first_date) : null,
+                'latest' => $albumStats->latest_date ? Carbon::parse($albumStats->latest_date) : null,
             ],
             'album_types' => Album::selectRaw('type, COUNT(*) as count')
                 ->groupBy('type')
@@ -78,10 +88,13 @@ class MusicLookupService
     public function getRandomValidDate(): ?Carbon
     {
         $randomAlbum = Album::inRandomOrder()->first();
-        
+
         return $randomAlbum ? Carbon::parse($randomAlbum->release_date) : null;
     }
 
+    /**
+     * @param  Collection<int, Album>  $albums
+     */
     public function enrichSpotifyIds(Collection $albums): void
     {
         if ($albums->isEmpty()) {
@@ -90,19 +103,20 @@ class MusicLookupService
 
         $matcher = app(SpotifyMatchService::class);
 
-        $albums->flatMap->songs
+        $albums
+            ->flatMap(fn (Album $album) => $album->songs)
             ->unique('id')
-            ->filter(fn ($song) => !$song->spotify_id)
+            ->filter(fn ($song) => ! $song->spotify_id)
             ->each(function ($song) use ($matcher): void {
                 $primaryArtist = $song->primaryArtists->first();
 
-                if (!$primaryArtist) {
+                if (! $primaryArtist) {
                     return;
                 }
 
                 $trackId = $matcher->findTrackId($song->title, $primaryArtist->name);
 
-                if (!$trackId) {
+                if (! $trackId) {
                     return;
                 }
 

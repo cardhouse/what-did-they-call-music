@@ -3,7 +3,6 @@
 use Livewire\Component;
 use Livewire\Attributes\Computed;
 use Livewire\Attributes\Locked;
-use App\Models\Song;
 use App\Services\MusicLookupService;
 use App\Services\SpotifyMatchService;
 use App\Services\FandomScraper;
@@ -26,9 +25,6 @@ new class extends Component
 
     /** @var array<int, string|null> Song ID => Spotify track ID (null = not found) */
     public array $resolvedSpotifyIds = [];
-
-    /** @var array<int, bool> Song IDs currently being resolved */
-    public array $pendingSpotifyLookups = [];
 
     /** @var array<int, string|null> Album ID => Cover art URL (null = not found) */
     public array $resolvedAlbumArtwork = [];
@@ -56,7 +52,7 @@ new class extends Component
         $this->selectedDate = $defaultDate->format('Y-m-d');
     }
 
-    #[Computed]
+    #[Computed(cache: true, key: 'music-collection-stats', seconds: 3600)]
     public function stats(): array
     {
         return app(MusicLookupService::class)->getCollectionStats();
@@ -97,7 +93,7 @@ new class extends Component
 
         $this->validate($rules, $messages);
 
-        $this->reset(['errorMessage', 'resolvedSpotifyIds', 'pendingSpotifyLookups', 'resolvedAlbumArtwork']);
+        $this->reset(['errorMessage', 'resolvedSpotifyIds', 'resolvedAlbumArtwork']);
         $this->searched = true;
 
         if ($this->albums->isEmpty()) {
@@ -173,11 +169,7 @@ new class extends Component
             return;
         }
 
-        $this->pendingSpotifyLookups[$songId] = true;
-
         $trackId = app(SpotifyMatchService::class)->findTrackId($targetSong->title, $primaryArtist->name);
-
-        unset($this->pendingSpotifyLookups[$songId]);
 
         $this->resolvedSpotifyIds[$songId] = $trackId;
 
@@ -190,38 +182,6 @@ new class extends Component
     {
         $trackId = $this->resolvedSpotifyIds[$songId] ?? null;
         return $trackId ? "https://open.spotify.com/track/{$trackId}" : null;
-    }
-
-    public function playTrack(int $songId): void
-    {
-        $trackId = $this->resolvedSpotifyIds[$songId] ?? null;
-
-        if (!$trackId) {
-            return;
-        }
-
-        $targetSong = null;
-        foreach ($this->albums as $album) {
-            $targetSong = $album->songs->firstWhere('id', $songId);
-            if ($targetSong) {
-                break;
-            }
-        }
-
-        if (!$targetSong) {
-            return;
-        }
-
-        $this->dispatch('open-spotify-player',
-            trackId: $trackId,
-            title: $targetSong->title,
-            artist: $targetSong->artist_names
-        );
-    }
-
-    public function isSongPendingSpotify(int $songId): bool
-    {
-        return isset($this->pendingSpotifyLookups[$songId]);
     }
 
     public function hasSongBeenResolved(int $songId): bool
@@ -288,7 +248,7 @@ new class extends Component
             $this->search();
         } elseif (!$this->selectedDate) {
             $this->searched = false;
-            $this->reset(['errorMessage', 'resolvedSpotifyIds', 'pendingSpotifyLookups', 'resolvedAlbumArtwork']);
+            $this->reset(['errorMessage', 'resolvedSpotifyIds', 'resolvedAlbumArtwork']);
         }
     }
 
@@ -375,9 +335,8 @@ new class extends Component
                                         :invalid="$errors->has('selectedDate')"
                                     />
                                 </div>
-                                <flux:button variant="subtle" wire:click="surpriseMe" title="Surprise Me" class="shrink-0 px-3 border border-zinc-200 dark:border-zinc-700 hover:bg-amber-50 dark:hover:bg-amber-500/10 hover:border-amber-300 dark:hover:border-amber-500/30 transition-all">
-                                    <flux:icon icon="sparkles" class="size-5 text-amber-500" />
-                                    <span class="hidden sm:inline ml-1.5 text-amber-600 dark:text-amber-400 font-medium">Surprise</span>
+                                <flux:button variant="subtle" wire:click="surpriseMe" icon:trailing="sparkles" title="Surprise Me" class="text-amber-600 dark:text-amber-400 shrink-0 px-3 border border-zinc-200 dark:border-zinc-700 hover:bg-amber-50 dark:hover:bg-amber-500/10 hover:border-amber-300 dark:hover:border-amber-500/30 transition-all">
+                                    Surprise
                                 </flux:button>
                             </div>
                             <flux:error name="selectedDate" />
@@ -391,23 +350,23 @@ new class extends Component
 
                 <div class="pt-4 border-t border-zinc-100 dark:border-zinc-800">
                     <span class="block text-xs font-bold text-zinc-400 uppercase tracking-widest mb-3">Quick Jumps</span>
-                    <div class="grid grid-cols-3 sm:flex sm:flex-wrap gap-2">
+                    <flux:button.group class="flex-wrap">
                         @if($this->isEraRelevant('1983'))
-                            <flux:button size="xs" variant="subtle" wire:click="pickEra('1983')" class="rounded-full justify-center">80s</flux:button>
+                            <flux:button size="sm" variant="subtle" wire:click="pickEra('1983')">80s</flux:button>
                         @endif
                         @if($this->isEraRelevant('1995'))
-                            <flux:button size="xs" variant="subtle" wire:click="pickEra('1995')" class="rounded-full justify-center">90s</flux:button>
+                            <flux:button size="sm" variant="subtle" wire:click="pickEra('1995')">90s</flux:button>
                         @endif
                         @if($this->isEraRelevant('2005'))
-                            <flux:button size="xs" variant="subtle" wire:click="pickEra('2005')" class="rounded-full justify-center">Y2K</flux:button>
+                            <flux:button size="sm" variant="subtle" wire:click="pickEra('2005')">Y2K</flux:button>
                         @endif
                         @if($this->isEraRelevant('2015'))
-                            <flux:button size="xs" variant="subtle" wire:click="pickEra('2015')" class="rounded-full justify-center">2010s</flux:button>
+                            <flux:button size="sm" variant="subtle" wire:click="pickEra('2015')">2010s</flux:button>
                         @endif
                         @if($this->isEraRelevant('2020'))
-                            <flux:button size="xs" variant="subtle" wire:click="pickEra('2020')" class="rounded-full justify-center">2020s</flux:button>
+                            <flux:button size="sm" variant="subtle" wire:click="pickEra('2020')">2020s</flux:button>
                         @endif
-                    </div>
+                    </flux:button.group>
                 </div>
             </div>
         </flux:card>
@@ -479,15 +438,9 @@ new class extends Component
                                             <flux:text size="lg" class="text-zinc-500 dark:text-zinc-400 font-medium text-sm md:text-lg">{{ $album->name }}</flux:text>
                                         </div>
                                         
-                                        <div class="flex flex-wrap gap-2 md:gap-4 items-center text-zinc-500 dark:text-zinc-400">
-                                            <div class="flex items-center gap-1.5 md:gap-2 px-2.5 md:px-3 py-1 md:py-1.5 rounded-lg bg-zinc-100 dark:bg-zinc-800/50">
-                                                <flux:icon icon="calendar" class="size-3.5 md:size-4" />
-                                                <span class="text-xs md:text-sm font-medium">{{ $album->formatted_release_date }}</span>
-                                            </div>
-                                            <div class="flex items-center gap-1.5 md:gap-2 px-2.5 md:px-3 py-1 md:py-1.5 rounded-lg bg-zinc-100 dark:bg-zinc-800/50">
-                                                <flux:icon icon="list-bullet" class="size-3.5 md:size-4" />
-                                                <span class="text-xs md:text-sm font-medium">{{ $album->songs->count() }} Tracks</span>
-                                            </div>
+                                        <div class="flex flex-wrap gap-2 md:gap-3 items-center">
+                                            <flux:badge color="zinc" icon="calendar">{{ $album->formatted_release_date }}</flux:badge>
+                                            <flux:badge color="zinc" icon="list-bullet">{{ $album->songs->count() }} Tracks</flux:badge>
                                         </div>
 
                                         {{-- Hide description on mobile for cleaner look --}}
@@ -510,68 +463,69 @@ new class extends Component
                                             $isResolved = $this->hasSongBeenResolved($song->id);
                                             $hasArtists = $song->primaryArtists->isNotEmpty();
                                         @endphp
-                                        <div 
-                                            wire:key="song-mobile-{{ $song->id }}" 
-                                            class="bg-white dark:bg-zinc-900/80 rounded-2xl p-4 border border-zinc-200 dark:border-zinc-800 shadow-sm"
-                                            @if(!$isResolved && $hasArtists) wire:intersect.once="resolveSpotifyForSong({{ $song->id }})" @endif
-                                        >
-                                            <div class="flex items-start gap-3">
-                                                {{-- Track Number --}}
-                                                <div class="flex-shrink-0 size-8 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center">
-                                                    <span class="text-xs font-bold text-zinc-500 dark:text-zinc-400">{{ $song->pivot->track_number }}</span>
+                                        <div wire:key="song-mobile-{{ $song->id }}" @if(!$isResolved && $hasArtists) wire:intersect.once="resolveSpotifyForSong({{ $song->id }})" @endif>
+                                            <flux:card class="!p-4">
+                                                <div class="flex items-start gap-3">
+                                                    {{-- Track Number --}}
+                                                    <flux:badge size="sm" color="zinc" class="!rounded-full !size-8 !p-0 flex items-center justify-center shrink-0">
+                                                        {{ $song->pivot->track_number }}
+                                                    </flux:badge>
+
+                                                    {{-- Song Info --}}
+                                                    <div class="flex-1 min-w-0">
+                                                        <flux:heading size="sm" class="leading-tight">{{ $song->title }}</flux:heading>
+                                                        <flux:text size="sm" class="mt-0.5 truncate">{{ $song->artist_names }}</flux:text>
+                                                        @if($song->original_release_year)
+                                                            <flux:badge size="sm" color="zinc" class="mt-1">{{ $song->original_release_year }}</flux:badge>
+                                                        @endif
+                                                    </div>
                                                 </div>
-                                                
-                                                {{-- Song Info --}}
-                                                <div class="flex-1 min-w-0">
-                                                    <h4 class="font-bold text-zinc-900 dark:text-zinc-100 leading-tight">{{ $song->title }}</h4>
-                                                    <p class="text-sm text-zinc-600 dark:text-zinc-400 mt-0.5 truncate">{{ $song->artist_names }}</p>
-                                                    @if($song->original_release_year)
-                                                        <span class="inline-block mt-1 text-[10px] uppercase tracking-wider text-zinc-400 font-bold bg-zinc-100 dark:bg-zinc-800 px-2 py-0.5 rounded">{{ $song->original_release_year }}</span>
+
+                                                {{-- Action Buttons --}}
+                                                <flux:separator class="my-3" />
+                                                <div class="flex items-center gap-2">
+                                                    @if($spotifyUrl)
+                                                        <flux:button
+                                                            as="a"
+                                                            href="{{ $spotifyUrl }}"
+                                                            target="_blank"
+                                                            rel="noopener"
+                                                            variant="subtle"
+                                                            class="flex-1 !bg-[#1DB954]/10 !text-[#1DB954] hover:!bg-[#1DB954]/20"
+                                                        >
+                                                            <svg class="size-5" fill="currentColor" viewBox="0 0 24 24">
+                                                                <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.42 1.56-.299.421-1.02.599-1.559.3z"/>
+                                                            </svg>
+                                                            Spotify
+                                                        </flux:button>
+                                                    @elseif(!$isResolved && $hasArtists)
+                                                        <flux:button variant="subtle" disabled class="flex-1">
+                                                            <flux:icon.loading class="size-4" />
+                                                            Finding...
+                                                        </flux:button>
+                                                    @else
+                                                        <flux:button variant="subtle" disabled class="flex-1">
+                                                            Not on Spotify
+                                                        </flux:button>
+                                                    @endif
+
+                                                    @if($song->apple_music_url)
+                                                        <flux:button
+                                                            as="a"
+                                                            href="{{ $song->apple_music_url }}"
+                                                            target="_blank"
+                                                            variant="filled"
+                                                            square
+                                                            class="!bg-gradient-to-br !from-[#FA2D48] !to-[#FB5C74] hover:!opacity-90"
+                                                            title="Apple Music"
+                                                        >
+                                                            <svg class="size-5" fill="currentColor" viewBox="0 0 24 24">
+                                                                <path d="M23.997 6.124c0-.738-.065-1.47-.24-2.19-.317-1.31-1.062-2.31-2.18-3.043C21.003.517 20.373.285 19.7.164c-.517-.093-1.038-.135-1.564-.15-.04-.001-.08-.004-.12-.004H5.986c-.04 0-.08.003-.12.004-.525.015-1.046.057-1.563.15-.674.121-1.304.353-1.878.727-1.118.733-1.863 1.732-2.18 3.043-.175.72-.24 1.452-.24 2.19v11.751c0 .738.065 1.47.24 2.189.317 1.312 1.062 2.312 2.18 3.044.574.374 1.204.606 1.878.727.517.093 1.038.135 1.563.15.04.001.08.004.12.004h12.028c.04 0 .08-.003.12-.004.526-.015 1.047-.057 1.564-.15.673-.121 1.303-.353 1.877-.727 1.118-.732 1.863-1.732 2.18-3.044.175-.719.24-1.451.24-2.189V6.124zM11.997 19.997c-4.14 0-7.5-3.357-7.5-7.497s3.36-7.497 7.5-7.497 7.5 3.357 7.5 7.497-3.36 7.497-7.5 7.497zm0-13.497c-3.309 0-6 2.691-6 6s2.691 6 6 6 6-2.691 6-6-2.691-6-6-6z"/>
+                                                            </svg>
+                                                        </flux:button>
                                                     @endif
                                                 </div>
-                                            </div>
-                                            
-                                            {{-- Action Buttons --}}
-                                            <div class="flex items-center gap-2 mt-3 pt-3 border-t border-zinc-100 dark:border-zinc-800">
-                                                @if($spotifyUrl)
-                                                    <a 
-                                                        href="{{ $spotifyUrl }}" 
-                                                        target="_blank" 
-                                                        rel="noopener"
-                                                        class="flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-[#1DB954]/10 text-[#1DB954] font-semibold text-sm hover:bg-[#1DB954]/20 transition-colors"
-                                                    >
-                                                        <svg class="size-5" fill="currentColor" viewBox="0 0 24 24">
-                                                            <path d="M12 0C5.4 0 0 5.4 0 12s5.4 12 12 12 12-5.4 12-12S18.66 0 12 0zm5.521 17.34c-.24.359-.66.48-1.021.24-2.82-1.74-6.36-2.101-10.561-1.141-.418.122-.779-.179-.899-.539-.12-.421.18-.78.54-.9 4.56-1.021 8.52-.6 11.64 1.32.42.18.479.659.301 1.02zm1.44-3.3c-.301.42-.841.6-1.262.3-3.239-1.98-8.159-2.58-11.939-1.38-.479.12-1.02-.12-1.14-.6-.12-.48.12-1.021.6-1.141C9.6 9.9 15 10.561 18.72 12.84c.361.181.54.78.241 1.2zm.12-3.36C15.24 8.4 8.82 8.16 5.16 9.301c-.6.179-1.2-.181-1.38-.721-.18-.601.18-1.2.72-1.381 4.26-1.26 11.28-1.02 15.721 1.621.539.3.719 1.02.42 1.56-.299.421-1.02.599-1.559.3z"/>
-                                                        </svg>
-                                                        Spotify
-                                                    </a>
-                                                @elseif(!$isResolved && $hasArtists)
-                                                    <div class="flex-1 flex items-center justify-center gap-2 py-2.5 px-4 rounded-xl bg-zinc-100 dark:bg-zinc-800 text-zinc-400 text-sm">
-                                                        <svg class="size-4 animate-spin" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                                        </svg>
-                                                        Finding...
-                                                    </div>
-                                                @else
-                                                    <div class="flex-1 flex items-center justify-center py-2.5 px-4 rounded-xl bg-zinc-100 dark:bg-zinc-800 text-zinc-400 text-sm">
-                                                        Not on Spotify
-                                                    </div>
-                                                @endif
-                                                
-                                                @if($song->apple_music_url)
-                                                    <a 
-                                                        href="{{ $song->apple_music_url }}" 
-                                                        target="_blank"
-                                                        class="flex items-center justify-center size-11 rounded-xl bg-gradient-to-br from-[#FA2D48] to-[#FB5C74] text-white hover:opacity-90 transition-opacity"
-                                                        title="Apple Music"
-                                                    >
-                                                        <svg class="size-5" fill="currentColor" viewBox="0 0 24 24">
-                                                            <path d="M23.997 6.124c0-.738-.065-1.47-.24-2.19-.317-1.31-1.062-2.31-2.18-3.043C21.003.517 20.373.285 19.7.164c-.517-.093-1.038-.135-1.564-.15-.04-.001-.08-.004-.12-.004H5.986c-.04 0-.08.003-.12.004-.525.015-1.046.057-1.563.15-.674.121-1.304.353-1.878.727-1.118.733-1.863 1.732-2.18 3.043-.175.72-.24 1.452-.24 2.19v11.751c0 .738.065 1.47.24 2.189.317 1.312 1.062 2.312 2.18 3.044.574.374 1.204.606 1.878.727.517.093 1.038.135 1.563.15.04.001.08.004.12.004h12.028c.04 0 .08-.003.12-.004.526-.015 1.047-.057 1.564-.15.673-.121 1.303-.353 1.877-.727 1.118-.732 1.863-1.732 2.18-3.044.175-.719.24-1.451.24-2.189V6.124zM11.997 19.997c-4.14 0-7.5-3.357-7.5-7.497s3.36-7.497 7.5-7.497 7.5 3.357 7.5 7.497-3.36 7.497-7.5 7.497zm0-13.497c-3.309 0-6 2.691-6 6s2.691 6 6 6 6-2.691 6-6-2.691-6-6-6z"/>
-                                                        </svg>
-                                                    </a>
-                                                @endif
-                                            </div>
+                                            </flux:card>
                                         </div>
                                     @endforeach
                                 </div>
@@ -643,10 +597,7 @@ new class extends Component
                                                                 </flux:button>
                                                             @elseif(!$isResolved && $hasArtists)
                                                                 <div class="size-8 flex items-center justify-center">
-                                                                    <svg class="size-4 animate-spin text-zinc-400" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                                                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                                                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                                                                    </svg>
+                                                                    <flux:icon.loading class="size-4 text-zinc-400" />
                                                                 </div>
                                                             @else
                                                                 <span class="text-zinc-300 dark:text-zinc-700 font-bold">—</span>
@@ -667,48 +618,48 @@ new class extends Component
                                     </flux:table>
                                 </div>
                             @else
-                                <div class="text-center py-20 bg-zinc-50 dark:bg-zinc-800/20 rounded-3xl border-2 border-dashed border-zinc-200 dark:border-zinc-800">
+                                <flux:card class="text-center !py-20 !bg-zinc-50 dark:!bg-zinc-800/20 !rounded-3xl !border-2 !border-dashed !border-zinc-200 dark:!border-zinc-800">
                                     <flux:icon icon="musical-note" class="size-12 mx-auto text-zinc-300 dark:text-zinc-700 mb-4" />
                                     <flux:text variant="subtle">No tracks found for this edition.</flux:text>
-                                </div>
+                                </flux:card>
                             @endif
                         </div>
                     </div>
                 @endforeach
             </div>
         @elseif($searched && !$errorMessage)
-            <div class="text-center py-20 space-y-6 animate-in fade-in zoom-in duration-700">
-                <div class="inline-flex items-center justify-center size-20 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-400 mb-4">
+            <flux:card class="text-center !py-20 space-y-6 animate-in fade-in zoom-in duration-700">
+                <div class="inline-flex items-center justify-center size-20 rounded-full bg-zinc-100 dark:bg-zinc-800 text-zinc-400">
                     <flux:icon icon="magnifying-glass" class="size-10" />
                 </div>
                 <div class="space-y-2">
                     <flux:heading size="lg" class="text-2xl font-bold">No albums found</flux:heading>
                     <flux:text variant="subtle" class="max-w-xs mx-auto text-base">We couldn't find any NOW albums for this specific date. Try exploring another year!</flux:text>
                 </div>
-                <flux:button variant="subtle" wire:click="surpriseMe" class="mt-4">
+                <flux:button variant="subtle" wire:click="surpriseMe" icon="sparkles">
                     Try a random date
                 </flux:button>
-            </div>
+            </flux:card>
         @else
             <!-- Initial State -->
             <div class="space-y-8 md:space-y-12 animate-in fade-in slide-in-from-bottom-8 duration-1000 fill-mode-both">
                 {{-- Feature Cards - Stack on mobile --}}
                 <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 pt-6 md:pt-12">
-                    <div class="p-5 md:p-8 rounded-2xl md:rounded-3xl bg-gradient-to-br from-blue-500/5 to-indigo-500/5 border border-blue-500/10 space-y-3 md:space-y-4 group hover:border-blue-500/30 transition-colors">
+                    <flux:card class="!p-5 md:!p-8 !rounded-2xl md:!rounded-3xl !bg-gradient-to-br !from-blue-500/5 !to-indigo-500/5 !border-blue-500/10 space-y-3 md:space-y-4 group hover:!border-blue-500/30 transition-colors">
                         <flux:icon icon="sparkles" class="size-6 md:size-8 text-blue-500 group-hover:scale-110 transition-transform" />
                         <flux:heading size="sm" class="font-bold text-base md:text-lg">Instant Nostalgia</flux:heading>
-                        <flux:text size="sm" class="text-zinc-600 dark:text-zinc-400 text-sm">Search any date to see what everyone was listening to.</flux:text>
-                    </div>
-                    <div class="p-5 md:p-8 rounded-2xl md:rounded-3xl bg-gradient-to-br from-purple-500/5 to-pink-500/5 border border-purple-500/10 space-y-3 md:space-y-4 group hover:border-purple-500/30 transition-colors">
+                        <flux:text size="sm">Search any date to see what everyone was listening to.</flux:text>
+                    </flux:card>
+                    <flux:card class="!p-5 md:!p-8 !rounded-2xl md:!rounded-3xl !bg-gradient-to-br !from-purple-500/5 !to-pink-500/5 !border-purple-500/10 space-y-3 md:space-y-4 group hover:!border-purple-500/30 transition-colors">
                         <flux:icon icon="musical-note" class="size-6 md:size-8 text-purple-500 group-hover:scale-110 transition-transform" />
                         <flux:heading size="sm" class="font-bold text-base md:text-lg">Direct Listen</flux:heading>
-                        <flux:text size="sm" class="text-zinc-600 dark:text-zinc-400 text-sm">Connect directly to Spotify and Apple Music.</flux:text>
-                    </div>
-                    <div class="p-5 md:p-8 rounded-2xl md:rounded-3xl bg-gradient-to-br from-amber-500/5 to-orange-500/5 border border-amber-500/10 space-y-3 md:space-y-4 group hover:border-amber-500/30 transition-colors sm:col-span-2 lg:col-span-1">
+                        <flux:text size="sm">Connect directly to Spotify and Apple Music.</flux:text>
+                    </flux:card>
+                    <flux:card class="!p-5 md:!p-8 !rounded-2xl md:!rounded-3xl !bg-gradient-to-br !from-amber-500/5 !to-orange-500/5 !border-amber-500/10 space-y-3 md:space-y-4 group hover:!border-amber-500/30 transition-colors sm:col-span-2 lg:col-span-1">
                         <flux:icon icon="clock" class="size-6 md:size-8 text-amber-500 group-hover:scale-110 transition-transform" />
                         <flux:heading size="sm" class="font-bold text-base md:text-lg">40 Years of Music</flux:heading>
-                        <flux:text size="sm" class="text-zinc-600 dark:text-zinc-400 text-sm">Explore four decades of legendary NOW albums.</flux:text>
-                    </div>
+                        <flux:text size="sm">Explore four decades of legendary NOW albums.</flux:text>
+                    </flux:card>
                 </div>
 
                 <!-- Stats Section -->

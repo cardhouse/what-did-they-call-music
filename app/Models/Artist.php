@@ -15,6 +15,9 @@ class Artist extends Model
         'apple_music_id',
     ];
 
+    /**
+     * @return BelongsToMany<Song, $this>
+     */
     public function songs(): BelongsToMany
     {
         return $this->belongsToMany(Song::class)
@@ -22,11 +25,17 @@ class Artist extends Model
             ->withTimestamps();
     }
 
+    /**
+     * @return BelongsToMany<Song, $this>
+     */
     public function primarySongs(): BelongsToMany
     {
         return $this->songs()->wherePivot('is_primary', true);
     }
 
+    /**
+     * @return BelongsToMany<Song, $this>
+     */
     public function featuredSongs(): BelongsToMany
     {
         return $this->songs()->wherePivot('is_primary', false);

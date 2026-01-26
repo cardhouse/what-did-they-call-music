@@ -305,6 +305,8 @@ class FandomScraper
 
     /**
      * Import all albums and their tracks into the database.
+     *
+     * @return array{albums_processed: int, albums_created: int, songs_created: int, artists_created: int, errors: array<int, string>}
      */
     public function importAllAlbums(bool $dryRun = false, ?callable $progressCallback = null): array
     {

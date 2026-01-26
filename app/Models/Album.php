@@ -4,9 +4,10 @@ declare(strict_types=1);
 
 namespace App\Models;
 
+use Carbon\Carbon;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
-use Carbon\Carbon;
 
 class Album extends Model
 {
@@ -28,6 +29,9 @@ class Album extends Model
         ];
     }
 
+    /**
+     * @return BelongsToMany<Song, $this>
+     */
     public function songs(): BelongsToMany
     {
         return $this->belongsToMany(Song::class)
@@ -36,14 +40,22 @@ class Album extends Model
             ->orderBy('album_song.track_number');
     }
 
-    public function scopeReleasedByDate($query, Carbon $date)
+    /**
+     * @param  Builder<Album>  $query
+     * @return Builder<Album>
+     */
+    public function scopeReleasedByDate(Builder $query, Carbon $date): Builder
     {
         return $query->where('release_date', '<=', $date);
     }
 
-    public function scopeMostRecentByDate($query, Carbon $date)
+    /**
+     * @param  Builder<Album>  $query
+     * @return Builder<Album>
+     */
+    public function scopeMostRecentByDate(Builder $query, Carbon $date): Builder
     {
-        return $query->releasedByDate($date)
+        return $query->where('release_date', '<=', $date)
             ->orderBy('release_date', 'desc');
     }
 
@@ -58,12 +70,16 @@ class Album extends Model
 
     public function getFormattedReleaseDateAttribute(): string
     {
-        return $this->release_date->format('F Y');
+        if (! $this->release_date) {
+            return '';
+        }
+
+        return Carbon::parse($this->release_date)->format('F Y');
     }
 
     public function getProxiedCoverArtUrlAttribute(): ?string
     {
-        if (!$this->cover_art_url) {
+        if (! $this->cover_art_url) {
             return null;
         }
 

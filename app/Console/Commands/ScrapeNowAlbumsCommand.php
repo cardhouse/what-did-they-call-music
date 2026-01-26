@@ -68,9 +68,17 @@ class ScrapeNowAlbumsCommand extends Command
         ];
 
         foreach ($albums as $albumData) {
-            $progressBar->setMessage("NOW {$albumData['number']}");
+            $albumNumber = $albumData['number'];
+            $progressBar->setMessage($albumNumber ? "NOW {$albumNumber}" : 'Unknown album');
             $progressBar->advance();
 
+            if ($albumData['number'] === null || $albumData['release_date'] === null) {
+                $stats['errors'][] = 'Album with missing number or release date was skipped.';
+
+                continue;
+            }
+
+            /** @var array{number: int, name: string, release_date: string, type: string, fandom_url: string} $albumData */
             if ($dryRun) {
                 $stats['albums_processed']++;
 
@@ -84,10 +92,10 @@ class ScrapeNowAlbumsCommand extends Command
                 $stats['songs_created'] += $result['songs_created'];
                 $stats['artists_created'] += $result['artists_created'];
             } catch (\Exception $e) {
-                $stats['errors'][] = "Album #{$albumData['number']}: " . $e->getMessage();
+                $stats['errors'][] = "Album #{$albumData['number']}: ".$e->getMessage();
             }
 
-            // Be nice to Wikipedia
+            // Be nice to Fandom
             usleep(500000); // 0.5 seconds
         }
 
@@ -103,7 +111,7 @@ class ScrapeNowAlbumsCommand extends Command
     /**
      * Process a single album.
      *
-     * @param  array{number: int, name: string, release_date: string, type: string, fandom_url: string|null}  $albumData
+     * @param  array{number: int, name: string, release_date: string, type: string, fandom_url: string}  $albumData
      * @return array{album_created: bool, songs_created: int, artists_created: int}
      */
     private function processAlbum(FandomScraper $scraper, array $albumData): array
