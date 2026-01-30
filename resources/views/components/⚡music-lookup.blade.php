@@ -8,6 +8,7 @@ use App\Services\SpotifyMatchService;
 use App\Services\FandomScraper;
 use Carbon\Carbon;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 new class extends Component
@@ -96,10 +97,25 @@ new class extends Component
         $this->reset(['errorMessage', 'resolvedSpotifyIds', 'resolvedAlbumArtwork']);
         $this->searched = true;
 
-        if ($this->albums->isEmpty()) {
+        $albums = $this->albums;
+
+        if ($albums->isEmpty()) {
+            Log::channel('requests')->info('Search returned no results', [
+                'ip' => request()->ip(),
+                'date_searched' => $this->selectedDate,
+                'albums_found' => 0,
+            ]);
+
             $this->errorMessage = "No NOW albums found for that date. This shouldn't happen!";
             return;
         }
+
+        Log::channel('requests')->info('Search completed', [
+            'ip' => request()->ip(),
+            'date_searched' => $this->selectedDate,
+            'albums_found' => $albums->count(),
+            'album_titles' => $albums->pluck('name')->toArray(),
+        ]);
 
         $this->preloadExistingSpotifyIds();
         $this->preloadExistingAlbumArtwork();
