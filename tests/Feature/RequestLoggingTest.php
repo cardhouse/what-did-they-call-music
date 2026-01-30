@@ -73,14 +73,8 @@ test('search logs date searched and album titles', function () {
 });
 
 test('search logs when no albums are found', function () {
+    // Delete all albums to ensure no results for any search
     Album::query()->delete();
-
-    Album::create([
-        'number' => 50,
-        'name' => "NOW That's What I Call Music! 50",
-        'release_date' => '2001-11-19',
-        'type' => 'regular',
-    ]);
 
     Log::shouldReceive('channel')
         ->with('requests')
@@ -100,8 +94,6 @@ test('search logs when no albums are found', function () {
 
     Livewire::test('music-lookup')
         ->set('selectedDate', '2001-11-19')
-        ->set('minAlbumReleaseDate', '1990-01-01')
-        ->set('maxAlbumReleaseDate', '2025-01-01')
         ->call('search');
 });
 
