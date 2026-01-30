@@ -28,10 +28,6 @@ beforeEach(function () {
 });
 
 test('middleware logs page visit requests', function () {
-    Log::shouldReceive('channel')
-        ->with('requests')
-        ->andReturnSelf();
-
     Log::shouldReceive('info')
         ->withArgs(function ($message, $context) {
             return $message === 'Request'
@@ -49,10 +45,6 @@ test('middleware logs page visit requests', function () {
 });
 
 test('search logs date searched and album titles', function () {
-    Log::shouldReceive('channel')
-        ->with('requests')
-        ->andReturnSelf();
-
     Log::shouldReceive('info')
         ->withArgs(function ($message, $context) {
             if ($message === 'Search completed') {
@@ -76,10 +68,6 @@ test('search logs when no albums are found', function () {
     // Delete all albums to ensure no results for any search
     Album::query()->delete();
 
-    Log::shouldReceive('channel')
-        ->with('requests')
-        ->andReturnSelf();
-
     Log::shouldReceive('info')
         ->withArgs(function ($message, $context) {
             if ($message === 'Search returned no results') {
@@ -98,10 +86,6 @@ test('search logs when no albums are found', function () {
 });
 
 test('image proxy logs blocked domain access attempts', function () {
-    Log::shouldReceive('channel')
-        ->with('requests')
-        ->andReturnSelf();
-
     Log::shouldReceive('warning')
         ->withArgs(function ($message, $context) {
             if ($message === 'Blocked image proxy request to disallowed domain') {
@@ -122,10 +106,6 @@ test('image proxy logs blocked domain access attempts', function () {
 });
 
 test('middleware logs client error requests as warnings', function () {
-    Log::shouldReceive('channel')
-        ->with('requests')
-        ->andReturnSelf();
-
     Log::shouldReceive('warning')
         ->withArgs(function ($message, $context) {
             return $message === 'Client error request'

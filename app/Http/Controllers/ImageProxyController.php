@@ -22,7 +22,7 @@ class ImageProxyController extends Controller
         $decodedUrl = base64_decode($url);
 
         if (!$this->isAllowedUrl($decodedUrl)) {
-            Log::channel('requests')->warning('Blocked image proxy request to disallowed domain', [
+            Log::warning('Blocked image proxy request to disallowed domain', [
                 'ip' => request()->ip(),
                 'requested_url' => $decodedUrl,
                 'user_agent' => request()->userAgent(),

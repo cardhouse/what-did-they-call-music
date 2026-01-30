@@ -45,11 +45,11 @@ class LogRequests
         $statusCode = $response->getStatusCode();
 
         if ($statusCode >= 400 && $statusCode < 500) {
-            Log::channel('requests')->warning('Client error request', $context);
+            Log::warning('Client error request', $context);
         } elseif ($statusCode >= 500) {
-            Log::channel('requests')->error('Server error request', $context);
+            Log::error('Server error request', $context);
         } else {
-            Log::channel('requests')->info('Request', $context);
+            Log::info('Request', $context);
         }
     }
 }
