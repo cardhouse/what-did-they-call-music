@@ -100,7 +100,7 @@ new class extends Component
         $albums = $this->albums;
 
         if ($albums->isEmpty()) {
-            Log::channel('requests')->info('Search returned no results', [
+            Log::info('Search returned no results', [
                 'ip' => request()->ip(),
                 'date_searched' => $this->selectedDate,
                 'albums_found' => 0,
@@ -110,7 +110,7 @@ new class extends Component
             return;
         }
 
-        Log::channel('requests')->info('Search completed', [
+        Log::info('Search completed', [
             'ip' => request()->ip(),
             'date_searched' => $this->selectedDate,
             'albums_found' => $albums->count(),

@@ -21,7 +21,7 @@ return Application::configure(basePath: dirname(__DIR__))
             $statusCode = $e->getStatusCode();
 
             if ($statusCode === 403 || $statusCode === 401) {
-                Log::channel('requests')->warning('Unauthorized access attempt', [
+                Log::warning('Unauthorized access attempt', [
                     'ip' => request()->ip(),
                     'method' => request()->method(),
                     'url' => request()->fullUrl(),
