@@ -459,6 +459,21 @@ new class extends Component
                                             <flux:badge color="zinc" icon="list-bullet">{{ $album->songs->count() }} Tracks</flux:badge>
                                         </div>
 
+                                        @if($album->affiliate_url)
+                                            <div class="flex flex-wrap gap-2 items-center">
+                                                <flux:button
+                                                    href="{{ $album->affiliate_url }}"
+                                                    icon:trailing="arrow-up-right"
+                                                    target="_blank"
+                                                    rel="noopener"
+                                                    variant="primary"
+                                                    color="amber"
+                                                >
+                                                    Buy this album
+                                                </flux:button>
+                                            </div>
+                                        @endif
+
                                         {{-- Hide description on mobile for cleaner look --}}
                                         <p class="hidden md:block text-zinc-600 dark:text-zinc-400 leading-relaxed max-w-xl">
                                             Experience the sound of <span class="text-zinc-900 dark:text-white font-semibold">{{ Carbon::parse($album->release_date)->format('F Y') }}</span>. 

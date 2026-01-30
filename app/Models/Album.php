@@ -6,11 +6,14 @@ namespace App\Models;
 
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 
 class Album extends Model
 {
+    use HasFactory;
+
     protected $fillable = [
         'number',
         'name',
@@ -19,6 +22,7 @@ class Album extends Model
         'type',
         'spotify_url',
         'apple_music_url',
+        'affiliate_url',
     ];
 
     protected function casts(): array
